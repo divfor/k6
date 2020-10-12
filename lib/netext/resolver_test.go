@@ -47,9 +47,9 @@ func TestResolver(t *testing.T) {
 
 	t.Run("LookupIP", func(t *testing.T) {
 		testCases := []struct {
-			ttl      time.Duration
-			strategy lib.DNSStrategy
-			expIP    []net.IP
+			ttl   time.Duration
+			sel   lib.DNSSelect
+			expIP []net.IP
 		}{
 			{0, lib.DNSFirst, []net.IP{net.ParseIP("127.0.0.10")}},
 			{time.Second, lib.DNSFirst, []net.IP{net.ParseIP("127.0.0.10")}},
@@ -63,8 +63,8 @@ func TestResolver(t *testing.T) {
 
 		for _, tc := range testCases {
 			tc := tc
-			t.Run(fmt.Sprintf("%s_%s", tc.ttl, tc.strategy), func(t *testing.T) {
-				r := NewResolver(mr.LookupIPAll, tc.ttl, tc.strategy)
+			t.Run(fmt.Sprintf("%s_%s", tc.ttl, tc.sel), func(t *testing.T) {
+				r := NewResolver(mr.LookupIPAll, tc.ttl, tc.sel)
 				ip, err := r.LookupIP(host)
 				require.NoError(t, err)
 				assert.Equal(t, tc.expIP[0], ip)
@@ -81,7 +81,7 @@ func TestResolver(t *testing.T) {
 					assert.True(t, cr.cache[host].lastLookup.After(firstLookup))
 				}
 
-				if tc.strategy == lib.DNSRoundRobin {
+				if tc.sel == lib.DNSRoundRobin {
 					ips := []net.IP{ip}
 					for i := 0; i < 3; i++ {
 						ip, err = r.LookupIP(host)

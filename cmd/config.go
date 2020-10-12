@@ -262,8 +262,8 @@ func applyDefault(conf Config) Config {
 	if !conf.DNS.TTL.Valid {
 		conf.DNS.TTL = lib.DefaultDNSConfig().TTL
 	}
-	if !conf.DNS.Strategy.Valid {
-		conf.DNS.Strategy = lib.DefaultDNSConfig().Strategy
+	if !conf.DNS.Select.Valid {
+		conf.DNS.Select = lib.DefaultDNSConfig().Select
 	}
 	return conf
 }

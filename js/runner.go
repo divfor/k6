@@ -107,7 +107,7 @@ func newFromBundle(logger *logrus.Logger, b *Bundle) (*Runner, error) {
 			DualStack: true,
 		},
 		console:        newConsole(logger),
-		Resolver:       netext.NewResolver(net.LookupIP, 0, lib.DefaultDNSConfig().Strategy.DNSStrategy),
+		Resolver:       netext.NewResolver(net.LookupIP, 0, lib.DefaultDNSConfig().Select.DNSSelect),
 		ActualResolver: net.LookupIP,
 	}
 
@@ -335,11 +335,11 @@ func (r *Runner) SetOptions(opts lib.Options) error {
 	if err != nil {
 		return err
 	}
-	strategy := opts.DNS.Strategy.DNSStrategy
-	if !strategy.IsADNSStrategy() {
-		strategy = lib.DefaultDNSConfig().Strategy.DNSStrategy
+	dnsSel := opts.DNS.Select.DNSSelect
+	if !dnsSel.IsADNSSelect() {
+		dnsSel = lib.DefaultDNSConfig().Select.DNSSelect
 	}
-	r.Resolver = netext.NewResolver(r.ActualResolver, ttl, strategy)
+	r.Resolver = netext.NewResolver(r.ActualResolver, ttl, dnsSel)
 
 	return nil
 }

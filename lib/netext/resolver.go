@@ -38,11 +38,11 @@ type Resolver interface {
 }
 
 type resolver struct {
-	resolve    MultiResolver
-	strategy   lib.DNSStrategy
-	rrm        *sync.Mutex
-	rand       *rand.Rand
-	roundRobin map[string]uint8
+	resolve     MultiResolver
+	selectIndex lib.DNSSelect
+	rrm         *sync.Mutex
+	rand        *rand.Rand
+	roundRobin  map[string]uint8
 }
 
 type cacheRecord struct {
@@ -59,15 +59,15 @@ type cacheResolver struct {
 
 // NewResolver returns a new DNS resolver. If ttl is not 0, responses
 // will be cached per host for the specified period. The IP returned from
-// LookupIP() will be selected based on the given strategy.
-func NewResolver(actRes MultiResolver, ttl time.Duration, strategy lib.DNSStrategy) Resolver {
+// LookupIP() will be selected based on the given sel value.
+func NewResolver(actRes MultiResolver, ttl time.Duration, sel lib.DNSSelect) Resolver {
 	r := rand.New(rand.NewSource(time.Now().UnixNano())) // nolint: gosec
 	res := resolver{
-		resolve:    actRes,
-		strategy:   strategy,
-		rrm:        &sync.Mutex{},
-		rand:       r,
-		roundRobin: make(map[string]uint8),
+		resolve:     actRes,
+		selectIndex: sel,
+		rrm:         &sync.Mutex{},
+		rand:        r,
+		roundRobin:  make(map[string]uint8),
 	}
 	if ttl == 0 {
 		return &res
@@ -81,7 +81,7 @@ func NewResolver(actRes MultiResolver, ttl time.Duration, strategy lib.DNSStrate
 }
 
 // LookupIP returns a single IP resolved for host, selected by the
-// configured strategy.
+// configured select strategy.
 func (r *resolver) LookupIP(host string) (net.IP, error) {
 	ips, err := r.resolve(host)
 	if err != nil {
@@ -91,8 +91,8 @@ func (r *resolver) LookupIP(host string) (net.IP, error) {
 }
 
 // LookupIP returns a single IP resolved for host, selected by the configured
-// strategy. Results are cached per host and will be refreshed if the last
-// lookup time exceeds the configured TTL (not the TTL returned in the DNS
+// select strategy. Results are cached per host and will be refreshed if the
+// last lookup time exceeds the configured TTL (not the TTL returned in the DNS
 // record).
 func (r *cacheResolver) LookupIP(host string) (net.IP, error) {
 	r.cm.Lock()
@@ -121,7 +121,7 @@ func (r *resolver) selectOne(host string, ips []net.IP) net.IP {
 		return nil
 	}
 	var ip net.IP
-	switch r.strategy {
+	switch r.selectIndex {
 	case lib.DNSFirst:
 		return ips[0]
 	case lib.DNSRoundRobin:

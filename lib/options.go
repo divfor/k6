@@ -51,30 +51,30 @@ var DefaultSummaryTrendStats = []string{"avg", "min", "med", "max", "p(90)", "p(
 type DNSConfig struct {
 	// If positive, defines how long DNS lookups should be returned from the cache.
 	TTL null.String `json:"ttl"`
-	// Strategy to use when picking a single IP if more than one is returned for a host name.
-	Strategy NullDNSStrategy `json:"strategy"`
+	// Select specifies the strategy to use when picking a single IP if more than one is returned for a host name.
+	Select NullDNSSelect `json:"select"`
 	// FIXME: Valid is unused and is only added to satisfy some logic in
 	// lib.Options.ForEachSpecified(), otherwise it would panic with
 	// `reflect: call of reflect.Value.Bool on zero Value`.
 	Valid bool
 }
 
-// DNSStrategy is the strategy to use when picking a single IP if more than one
+// DNSSelect is the strategy to use when picking a single IP if more than one
 // is returned for a host name.
-//go:generate enumer -type=DNSStrategy -transform=kebab -trimprefix DNS -output dns_strategy_gen.go
-type DNSStrategy uint8
+//go:generate enumer -type=DNSSelect -transform=kebab -trimprefix DNS -output dns_select_gen.go
+type DNSSelect uint8
 
 const (
 	// DNSFirst returns the first IP from the response.
-	DNSFirst DNSStrategy = iota + 1
+	DNSFirst DNSSelect = iota + 1
 	// DNSRoundRobin rotates the IP returned on each lookup.
 	DNSRoundRobin
 	// DNSRandom returns a random IP from the response.
 	DNSRandom
 )
 
-// UnmarshalJSON converts JSON data to a valid DNSStrategy
-func (d *DNSStrategy) UnmarshalJSON(data []byte) error {
+// UnmarshalJSON converts JSON data to a valid DNSSelect
+func (d *DNSSelect) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte(`null`)) {
 		return nil
 	}
@@ -82,7 +82,7 @@ func (d *DNSStrategy) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-	v, err := DNSStrategyString(s)
+	v, err := DNSSelectString(s)
 	if err != nil {
 		return err
 	}
@@ -91,23 +91,23 @@ func (d *DNSStrategy) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON returns the JSON representation of d
-func (d DNSStrategy) MarshalJSON() ([]byte, error) {
+func (d DNSSelect) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
 }
 
-// NullDNSStrategy is a nullable wrapper around DNSStrategy, required for the
+// NullDNSSelect is a nullable wrapper around DNSSelect, required for the
 // current configuration system.
-type NullDNSStrategy struct {
-	DNSStrategy
+type NullDNSSelect struct {
+	DNSSelect
 	Valid bool
 }
 
 // UnmarshalJSON converts JSON data to a valid NullDNSStratey
-func (d *NullDNSStrategy) UnmarshalJSON(data []byte) error {
+func (d *NullDNSSelect) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte(`null`)) {
 		return nil
 	}
-	if err := json.Unmarshal(data, &d.DNSStrategy); err != nil {
+	if err := json.Unmarshal(data, &d.DNSSelect); err != nil {
 		return err
 	}
 	d.Valid = true
@@ -115,18 +115,18 @@ func (d *NullDNSStrategy) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON returns the JSON representation of d
-func (d NullDNSStrategy) MarshalJSON() ([]byte, error) {
+func (d NullDNSSelect) MarshalJSON() ([]byte, error) {
 	if !d.Valid {
 		return []byte(`null`), nil
 	}
-	return json.Marshal(d.DNSStrategy)
+	return json.Marshal(d.DNSSelect)
 }
 
 // DefaultDNSConfig returns the default DNS configuration.
 func DefaultDNSConfig() DNSConfig {
 	return DNSConfig{
-		TTL:      null.NewString("5m", false),
-		Strategy: NullDNSStrategy{DNSRandom, false},
+		TTL:    null.NewString("5m", false),
+		Select: NullDNSSelect{DNSRandom, false},
 	}
 }
 
@@ -134,32 +134,32 @@ func DefaultDNSConfig() DNSConfig {
 func (c DNSConfig) String() string {
 	out := make([]string, 0, 2)
 	out = append(out, fmt.Sprintf("ttl=%s", c.TTL.String))
-	out = append(out, fmt.Sprintf("strategy=%s", c.Strategy.String()))
+	out = append(out, fmt.Sprintf("select=%s", c.Select.String()))
 	return strings.Join(out, ",")
 }
 
 // MarshalJSON implements json.Marshaler.
 func (c DNSConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		TTL      null.String     `json:"ttl"`
-		Strategy NullDNSStrategy `json:"strategy"`
+		TTL    null.String   `json:"ttl"`
+		Select NullDNSSelect `json:"select"`
 	}{
-		TTL:      c.TTL,
-		Strategy: c.Strategy,
+		TTL:    c.TTL,
+		Select: c.Select,
 	})
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (c *DNSConfig) UnmarshalJSON(data []byte) error {
 	var s struct {
-		TTL      null.String     `json:"ttl"`
-		Strategy NullDNSStrategy `json:"strategy"`
+		TTL    null.String   `json:"ttl"`
+		Select NullDNSSelect `json:"select"`
 	}
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
 	c.TTL = s.TTL
-	c.Strategy = s.Strategy
+	c.Select = s.Select
 	return nil
 }
 
@@ -179,13 +179,13 @@ func (c *DNSConfig) UnmarshalText(text []byte) error {
 func (c *DNSConfig) unmarshal(params map[string]interface{}) error {
 	for k, v := range params {
 		switch k {
-		case "strategy":
-			s, err := DNSStrategyString(v.(string))
+		case "select":
+			s, err := DNSSelectString(v.(string))
 			if err != nil {
 				return err
 			}
-			c.Strategy.DNSStrategy = s
-			c.Strategy.Valid = true
+			c.Select.DNSSelect = s
+			c.Select.Valid = true
 		case "ttl":
 			ttlv := fmt.Sprintf("%v", v)
 			c.TTL = null.StringFrom(ttlv)
@@ -691,8 +691,8 @@ func (o Options) Apply(opts Options) Options {
 	if opts.DNS.TTL.Valid {
 		o.DNS.TTL = opts.DNS.TTL
 	}
-	if opts.DNS.Strategy.Valid {
-		o.DNS.Strategy = opts.DNS.Strategy
+	if opts.DNS.Select.Valid {
+		o.DNS.Select = opts.DNS.Select
 	}
 
 	return o
