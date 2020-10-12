@@ -53,10 +53,80 @@ type DNSConfig struct {
 	TTL null.String `json:"ttl"`
 	// Select specifies the strategy to use when picking a single IP if more than one is returned for a host name.
 	Select NullDNSSelect `json:"select"`
+	// Policy specifies how to handle returning of IPv4 or IPv6 addresses.
+	Policy NullDNSPolicy `json:"policy"`
 	// FIXME: Valid is unused and is only added to satisfy some logic in
 	// lib.Options.ForEachSpecified(), otherwise it would panic with
 	// `reflect: call of reflect.Value.Bool on zero Value`.
 	Valid bool
+}
+
+// DNSPolicy specifies the preference for handling IP versions in DNS resolutions.
+//go:generate enumer -type=DNSPolicy -trimprefix DNS -output dns_policy_gen.go
+type DNSPolicy uint8
+
+// These are lower camel cased since enumer doesn't support it as a transform option.
+// See https://github.com/alvaroloes/enumer/pull/60 .
+const (
+	// DNSpreferIPv4 returns an IPv4 address if available, falling back to IPv6 otherwise.
+	DNSpreferIPv4 DNSPolicy = iota + 1
+	// DNSpreferIPv6 returns an IPv6 address if available, falling back to IPv4 otherwise.
+	DNSpreferIPv6
+	// DNSonlyIPv4 only returns an IPv4 address and the resolution will fail if no IPv4 address is found.
+	DNSonlyIPv4
+	// DNSonlyIPv6 only returns an IPv6 address and the resolution will fail if no IPv6 address is found.
+	DNSonlyIPv6
+	// DNSany returns any resolved address regardless of version.
+	DNSany
+)
+
+// UnmarshalJSON converts JSON data to a valid DNSPolicy
+func (d *DNSPolicy) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, []byte(`null`)) {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	v, err := DNSPolicyString(s)
+	if err != nil {
+		return err
+	}
+	*d = v
+	return nil
+}
+
+// MarshalJSON returns the JSON representation of d
+func (d DNSPolicy) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+// NullDNSPolicy is a nullable wrapper around DNSPolicy, required for the
+// current configuration system.
+type NullDNSPolicy struct {
+	DNSPolicy
+	Valid bool
+}
+
+// UnmarshalJSON converts JSON data to a valid NullDNSStratey
+func (d *NullDNSPolicy) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, []byte(`null`)) {
+		return nil
+	}
+	if err := json.Unmarshal(data, &d.DNSPolicy); err != nil {
+		return err
+	}
+	d.Valid = true
+	return nil
+}
+
+// MarshalJSON returns the JSON representation of d
+func (d NullDNSPolicy) MarshalJSON() ([]byte, error) {
+	if !d.Valid {
+		return []byte(`null`), nil
+	}
+	return json.Marshal(d.DNSPolicy)
 }
 
 // DNSSelect is the strategy to use when picking a single IP if more than one
@@ -127,6 +197,7 @@ func DefaultDNSConfig() DNSConfig {
 	return DNSConfig{
 		TTL:    null.NewString("5m", false),
 		Select: NullDNSSelect{DNSRandom, false},
+		Policy: NullDNSPolicy{DNSpreferIPv4, false},
 	}
 }
 
@@ -135,6 +206,7 @@ func (c DNSConfig) String() string {
 	out := make([]string, 0, 2)
 	out = append(out, fmt.Sprintf("ttl=%s", c.TTL.String))
 	out = append(out, fmt.Sprintf("select=%s", c.Select.String()))
+	out = append(out, fmt.Sprintf("policy=%s", c.Policy.String()))
 	return strings.Join(out, ",")
 }
 
@@ -143,9 +215,11 @@ func (c DNSConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		TTL    null.String   `json:"ttl"`
 		Select NullDNSSelect `json:"select"`
+		Policy NullDNSPolicy `json:"policy"`
 	}{
 		TTL:    c.TTL,
 		Select: c.Select,
+		Policy: c.Policy,
 	})
 }
 
@@ -154,12 +228,14 @@ func (c *DNSConfig) UnmarshalJSON(data []byte) error {
 	var s struct {
 		TTL    null.String   `json:"ttl"`
 		Select NullDNSSelect `json:"select"`
+		Policy NullDNSPolicy `json:"policy"`
 	}
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
 	c.TTL = s.TTL
 	c.Select = s.Select
+	c.Policy = s.Policy
 	return nil
 }
 
@@ -179,6 +255,13 @@ func (c *DNSConfig) UnmarshalText(text []byte) error {
 func (c *DNSConfig) unmarshal(params map[string]interface{}) error {
 	for k, v := range params {
 		switch k {
+		case "policy":
+			p, err := DNSPolicyString(v.(string))
+			if err != nil {
+				return err
+			}
+			c.Policy.DNSPolicy = p
+			c.Policy.Valid = true
 		case "select":
 			s, err := DNSSelectString(v.(string))
 			if err != nil {
@@ -693,6 +776,9 @@ func (o Options) Apply(opts Options) Options {
 	}
 	if opts.DNS.Select.Valid {
 		o.DNS.Select = opts.DNS.Select
+	}
+	if opts.DNS.Policy.Valid {
+		o.DNS.Policy = opts.DNS.Policy
 	}
 
 	return o
