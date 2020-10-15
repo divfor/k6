@@ -120,6 +120,7 @@ func TestParseExtendedDuration(t *testing.T) {
 		{"0d1.12s", false, 1120 * time.Millisecond},
 		{"10d1.12s", false, 240*time.Hour + 1120*time.Millisecond},
 		{"1s", false, 1 * time.Second},
+		{"1000", false, 1 * time.Second},
 		{"1d", false, 24 * time.Hour},
 		{"20d", false, 480 * time.Hour},
 		{"1d23h", false, 47 * time.Hour},

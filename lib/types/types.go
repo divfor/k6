@@ -95,8 +95,12 @@ func (d Duration) String() string {
 }
 
 // ParseExtendedDuration is a helper function that allows for string duration
-// values containing days.
+// values containing days. If no units are provided, milliseconds are assumed.
 func ParseExtendedDuration(data string) (result time.Duration, err error) {
+	if t, errp := strconv.ParseFloat(data, 32); errp == nil {
+		data = fmt.Sprintf("%.2fms", t)
+	}
+
 	dPos := strings.IndexByte(data, 'd')
 	if dPos < 0 {
 		return time.ParseDuration(data)
