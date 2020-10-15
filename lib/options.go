@@ -96,7 +96,7 @@ func (d *DNSPolicy) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON representation of d
+// MarshalJSON returns the JSON representation of d.
 func (d DNSPolicy) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
 }
@@ -108,7 +108,7 @@ type NullDNSPolicy struct {
 	Valid bool
 }
 
-// UnmarshalJSON converts JSON data to a valid NullDNSStratey
+// UnmarshalJSON converts JSON data to a valid NullDNSPolicy.
 func (d *NullDNSPolicy) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte(`null`)) {
 		return nil
@@ -120,7 +120,7 @@ func (d *NullDNSPolicy) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON representation of d
+// MarshalJSON returns the JSON representation of d.
 func (d NullDNSPolicy) MarshalJSON() ([]byte, error) {
 	if !d.Valid {
 		return []byte(`null`), nil
@@ -159,7 +159,7 @@ func (d *DNSSelect) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON representation of d
+// MarshalJSON returns the JSON representation of d.
 func (d DNSSelect) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
 }
@@ -171,7 +171,7 @@ type NullDNSSelect struct {
 	Valid bool
 }
 
-// UnmarshalJSON converts JSON data to a valid NullDNSStratey
+// UnmarshalJSON converts JSON data to a valid NullDNSSelect.
 func (d *NullDNSSelect) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte(`null`)) {
 		return nil
@@ -183,7 +183,7 @@ func (d *NullDNSSelect) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON returns the JSON representation of d
+// MarshalJSON returns the JSON representation of d.
 func (d NullDNSSelect) MarshalJSON() ([]byte, error) {
 	if !d.Valid {
 		return []byte(`null`), nil
