@@ -28,7 +28,6 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	"strings"
 
 	"github.com/kubernetes/helm/pkg/strvals"
 	"github.com/pkg/errors"
@@ -203,11 +202,8 @@ func DefaultDNSConfig() DNSConfig {
 
 // String implements fmt.Stringer.
 func (c DNSConfig) String() string {
-	out := make([]string, 0, 2)
-	out = append(out, fmt.Sprintf("ttl=%s", c.TTL.String))
-	out = append(out, fmt.Sprintf("select=%s", c.Select.String()))
-	out = append(out, fmt.Sprintf("policy=%s", c.Policy.String()))
-	return strings.Join(out, ",")
+	return fmt.Sprintf("ttl=%s,select=%s,policy=%s",
+		c.TTL.String, c.Select.String(), c.Policy.String())
 }
 
 // MarshalJSON implements json.Marshaler.
