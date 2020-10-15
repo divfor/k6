@@ -333,19 +333,30 @@ func (r *Runner) SetOptions(opts lib.Options) error {
 	// (it needs the actual resolver, not the config), and it would
 	// require an additional field on Bundle to pass the config through,
 	// which is arguably worse than this.
-	ttl, err := parseTTL(opts.DNS.TTL.String)
+	if err := r.setResolver(opts.DNS); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Runner) setResolver(dns lib.DNSConfig) error {
+	ttl, err := parseTTL(dns.TTL.String)
 	if err != nil {
 		return err
 	}
-	dnsSel := opts.DNS.Select.DNSSelect
-	if !dnsSel.IsADNSSelect() {
-		dnsSel = lib.DefaultDNSConfig().Select.DNSSelect
+
+	dnsSel := dns.Select
+	if !dnsSel.Valid {
+		dnsSel = lib.DefaultDNSConfig().Select
 	}
-	dnsPol := opts.DNS.Policy.DNSPolicy
-	if !dnsPol.IsADNSPolicy() {
-		dnsPol = lib.DefaultDNSConfig().Policy.DNSPolicy
+	dnsPol := dns.Policy
+	if !dnsPol.Valid {
+		dnsPol = lib.DefaultDNSConfig().Policy
 	}
-	r.Resolver = netext.NewResolver(r.ActualResolver, ttl, dnsSel, dnsPol)
+
+	r.Resolver = netext.NewResolver(
+		r.ActualResolver, ttl, dnsSel.DNSSelect, dnsPol.DNSPolicy)
 
 	return nil
 }
