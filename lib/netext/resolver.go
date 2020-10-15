@@ -47,8 +47,7 @@ type resolver struct {
 }
 
 type cacheRecord struct {
-	ip4        []net.IP
-	ip6        []net.IP
+	ips        []net.IP
 	lastLookup time.Time
 }
 
@@ -93,13 +92,7 @@ func (r *resolver) LookupIP(host string) (net.IP, error) {
 		return nil, err
 	}
 
-	ip4, ip6 := groupByVersion(ips)
-	var ip net.IP
-	ip, ips = r.applyPolicy(host, ip4, ip6)
-	if ip != nil {
-		return ip, nil
-	}
-
+	ips = r.applyPolicy(ips)
 	return r.selectOne(host, ips), nil
 }
 
@@ -110,10 +103,10 @@ func (r *resolver) LookupIP(host string) (net.IP, error) {
 func (r *cacheResolver) LookupIP(host string) (net.IP, error) {
 	r.cm.Lock()
 
-	var ips, ip4, ip6 []net.IP
+	var ips []net.IP
 	// TODO: Invalidate? When?
 	if cr, ok := r.cache[host]; ok && time.Now().Before(cr.lastLookup.Add(r.ttl)) {
-		ip4, ip6 = cr.ip4, cr.ip6
+		ips = cr.ips
 	} else {
 		r.cm.Unlock() // The lookup could take some time, so unlock momentarily.
 		var err error
@@ -121,18 +114,12 @@ func (r *cacheResolver) LookupIP(host string) (net.IP, error) {
 		if err != nil {
 			return nil, err
 		}
-		ip4, ip6 = groupByVersion(ips)
+		ips = r.applyPolicy(ips)
 		r.cm.Lock()
-		r.cache[host] = cacheRecord{ip4: ip4, ip6: ip6, lastLookup: time.Now()}
+		r.cache[host] = cacheRecord{ips: ips, lastLookup: time.Now()}
 	}
 
 	r.cm.Unlock()
-
-	var ip net.IP
-	ip, ips = r.applyPolicy(host, ip4, ip6)
-	if ip != nil {
-		return ip, nil
-	}
 
 	return r.selectOne(host, ips), nil
 }
@@ -162,21 +149,26 @@ func (r *resolver) selectOne(host string, ips []net.IP) net.IP {
 	return ip
 }
 
-func (r *resolver) applyPolicy(host string, ip4, ip6 []net.IP) (ip net.IP, ips []net.IP) {
-	switch r.policy {
+func (r *resolver) applyPolicy(ips []net.IP) (retIPs []net.IP) {
+	if r.policy == lib.DNSany {
+		return ips
+	}
+	ip4, ip6 := groupByVersion(ips)
+	switch r.policy { //nolint: exhaustive
 	case lib.DNSpreferIPv4:
-		ip = r.selectOne(host, ip4)
-		ips = ip6
+		retIPs = ip6
+		if len(ip4) > 0 {
+			retIPs = ip4
+		}
 	case lib.DNSpreferIPv6:
-		ip = r.selectOne(host, ip6)
-		ips = ip4
+		retIPs = ip4
+		if len(ip6) > 0 {
+			retIPs = ip6
+		}
 	case lib.DNSonlyIPv4:
-		ips = ip4
+		retIPs = ip4
 	case lib.DNSonlyIPv6:
-		ips = ip6
-	case lib.DNSany:
-		ips = append(ips, ip4...)
-		ips = append(ips, ip6...)
+		retIPs = ip6
 	}
 
 	return
