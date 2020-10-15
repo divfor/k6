@@ -57,7 +57,7 @@ type DNSConfig struct {
 	// FIXME: Valid is unused and is only added to satisfy some logic in
 	// lib.Options.ForEachSpecified(), otherwise it would panic with
 	// `reflect: call of reflect.Value.Bool on zero Value`.
-	Valid bool
+	Valid bool `json:"-"`
 }
 
 // DNSPolicy specifies the preference for handling IP versions in DNS resolutions.
@@ -204,19 +204,6 @@ func DefaultDNSConfig() DNSConfig {
 func (c DNSConfig) String() string {
 	return fmt.Sprintf("ttl=%s,select=%s,policy=%s",
 		c.TTL.String, c.Select.String(), c.Policy.String())
-}
-
-// MarshalJSON implements json.Marshaler.
-func (c DNSConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		TTL    null.String   `json:"ttl"`
-		Select NullDNSSelect `json:"select"`
-		Policy NullDNSPolicy `json:"policy"`
-	}{
-		TTL:    c.TTL,
-		Select: c.Select,
-		Policy: c.Policy,
-	})
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
